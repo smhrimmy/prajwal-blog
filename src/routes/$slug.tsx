@@ -1,66 +1,55 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-
 import { ArrowLeft, Clock } from 'lucide-react'
 
 export const Route = createFileRoute('/$slug')({
-  component: Article,
-})
-
-function Article() {
-  const { slug } = Route.useParams()
-  const [article, setArticle] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
-
-  useEffect(() => {
-    const fetchArticle = async () => {
-      // First try to match by slug, if not found try by ID
-      let { data, error } = await supabase
+  loader: async ({ params }) => {
+    const { slug } = params
+    
+    // First try to match by slug
+    let { data, error } = await supabase
+      .from('articles')
+      .select('*')
+      .eq('slug', slug)
+      .eq('status', 'published')
+      .single()
+      
+    // If not found, try by ID
+    if (error || !data) {
+      const res = await supabase
         .from('articles')
         .select('*')
-        .eq('slug', slug)
+        .eq('id', slug)
         .eq('status', 'published')
         .single()
-        
-      if (error || !data) {
-        const res = await supabase
-          .from('articles')
-          .select('*')
-          .eq('id', slug)
-          .eq('status', 'published')
-          .single()
-        data = res.data
-        error = res.error
-      }
-
-      if (error || !data) {
-        setError(true)
-      } else {
-        setArticle(data)
-      }
-      setLoading(false)
+      data = res.data
+      error = res.error
     }
-    fetchArticle()
-  }, [slug])
 
-  if (loading) {
-    return <div className="animate-pulse space-y-8">
+    if (error || !data) {
+      throw new Error("Article not found")
+    }
+
+    return { article: data }
+  },
+  component: Article,
+  pendingComponent: () => (
+    <div className="animate-pulse space-y-8">
       <div className="h-12 bg-black/5 dark:bg-white/5 rounded-lg w-2/3"></div>
       <div className="h-64 bg-black/5 dark:bg-white/5 rounded-lg w-full"></div>
     </div>
-  }
+  ),
+  errorComponent: () => (
+    <div className="py-20 text-center">
+      <h1 className="text-3xl font-bold mb-4">Article Not Found</h1>
+      <p className="text-black/60 dark:text-white/60 mb-8">This article might have been moved or unpublished.</p>
+      <Link to="/" className="text-sm font-medium border-b border-black/20 dark:border-white/20 pb-1">Return Home</Link>
+    </div>
+  )
+})
 
-  if (error || !article) {
-    return (
-      <div className="py-20 text-center">
-        <h1 className="text-3xl font-bold mb-4">Article Not Found</h1>
-        <p className="text-black/60 dark:text-white/60 mb-8">This article might have been moved or unpublished.</p>
-        <Link to="/" className="text-sm font-medium border-b border-black/20 dark:border-white/20 pb-1">Return Home</Link>
-      </div>
-    )
-  }
+function Article() {
+  const { article } = Route.useLoaderData()
 
   return (
     <article className="animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -99,3 +88,4 @@ function Article() {
     </article>
   )
 }
+

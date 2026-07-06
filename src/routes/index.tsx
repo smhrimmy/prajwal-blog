@@ -1,39 +1,30 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { ArrowUpRight, Clock } from 'lucide-react'
 
 export const Route = createFileRoute('/')({
+  loader: async () => {
+    const { data, error } = await supabase
+      .from('articles')
+      .select('*')
+      .eq('status', 'published')
+      .order('created_at', { ascending: false })
+    
+    if (error) throw new Error(error.message)
+    return { articles: data || [] }
+  },
   component: Index,
-})
-
-function Index() {
-  const [articles, setArticles] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const fetchArticles = async () => {
-      const { data, error } = await supabase
-        .from('articles')
-        .select('*')
-        .eq('status', 'published')
-        .order('created_at', { ascending: false })
-      
-      if (!error && data) {
-        setArticles(data)
-      }
-      setLoading(false)
-    }
-    fetchArticles()
-  }, [])
-
-  if (loading) {
-    return <div className="animate-pulse space-y-8">
+  pendingComponent: () => (
+    <div className="animate-pulse space-y-8">
       <div className="h-12 bg-black/5 dark:bg-white/5 rounded-lg w-1/3"></div>
       <div className="h-32 bg-black/5 dark:bg-white/5 rounded-lg w-full"></div>
       <div className="h-32 bg-black/5 dark:bg-white/5 rounded-lg w-full"></div>
     </div>
-  }
+  )
+})
+
+function Index() {
+  const { articles } = Route.useLoaderData()
 
   return (
     <div className="animate-in fade-in duration-700">
